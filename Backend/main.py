@@ -124,6 +124,43 @@ def action_page(action):
     return "Invalid action selected.", 400
 
 
+# @app.route('/upload-image', methods=['POST'])
+# def upload_image():
+#     bucket_name = request.form.get('bucket_name', '').strip() or 'ict-attendances'
+#     batch_name = request.form.get('batch_name', '').strip()
+#     er_number = request.form.get('er_number', '').strip()
+#     student_name = request.form.get('student_name', '').strip() or request.form.get('name', '').strip()
+
+#     image_files = request.files.getlist('images')
+#     single_file = request.files.get('file')
+#     if single_file and (not image_files or len(image_files) == 0):
+#         image_files = [single_file]
+
+#     if not all([bucket_name, batch_name, er_number, student_name]) or not image_files or not any(getattr(f, 'filename', '') for f in image_files):
+#         return jsonify({"error": "❌ All fields are required and images must be selected."}), 400
+
+#     try:
+#         # ✅ Upload images to S3
+#         upload_results = upload_multiple_images(batch_name, er_number, student_name, image_files)
+
+#         # ✅ Update Excel file after upload
+#         sync_students_to_excel()
+
+#         return jsonify({
+#             "success": True,
+#             "student": {
+#                 "er_number": er_number,
+#                 "name": student_name,
+#                 "batch_name": batch_name,
+#                 "bucket_name": bucket_name
+#             },
+#             "results": upload_results,
+#             "message": "✅ Upload successful and Excel updated."
+#         }), 200
+
+#     except Exception as e:
+#         return jsonify({"error": f"❌ Upload failed: {str(e)}"}), 500
+
 @app.route('/upload-image', methods=['POST'])
 def upload_image():
     bucket_name = request.form.get('bucket_name', '').strip() or 'ict-attendances'
@@ -131,17 +168,26 @@ def upload_image():
     er_number = request.form.get('er_number', '').strip()
     student_name = request.form.get('student_name', '').strip() or request.form.get('name', '').strip()
 
+    parent_phone = request.form.get('parent_phone', '').strip()  # ✅ ADDED
+
     image_files = request.files.getlist('images')
     single_file = request.files.get('file')
     if single_file and (not image_files or len(image_files) == 0):
         image_files = [single_file]
 
-    if not all([bucket_name, batch_name, er_number, student_name]) or not image_files or not any(getattr(f, 'filename', '') for f in image_files):
+    if not all([bucket_name, batch_name, er_number, student_name, parent_phone]) \
+       or not image_files or not any(getattr(f, 'filename', '') for f in image_files):
         return jsonify({"error": "❌ All fields are required and images must be selected."}), 400
 
     try:
-        # ✅ Upload images to S3
-        upload_results = upload_multiple_images(batch_name, er_number, student_name, image_files)
+        # ✅ Upload images to S3 (FIXED CALL)
+        upload_results = upload_multiple_images(
+            batch_name,
+            er_number,
+            student_name,
+            parent_phone,     # ✅ ADDED
+            image_files
+        )
 
         # ✅ Update Excel file after upload
         sync_students_to_excel()
@@ -152,7 +198,8 @@ def upload_image():
                 "er_number": er_number,
                 "name": student_name,
                 "batch_name": batch_name,
-                "bucket_name": bucket_name
+                "bucket_name": bucket_name,
+                "parent_phone": parent_phone  # ✅ ADDED
             },
             "results": upload_results,
             "message": "✅ Upload successful and Excel updated."
