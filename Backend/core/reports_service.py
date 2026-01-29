@@ -205,6 +205,32 @@ def calculate_attendance_percentages(grouped_reports, master_students):
 
     return results
 
+def get_low_attendance_students(threshold=75):
+    """
+    Returns students whose attendance percentage is below threshold
+    """
+
+    grouped_reports = list_s3_reports()
+    master_students = load_master_students()
+    attendance_summary = calculate_attendance_percentages(
+        grouped_reports, master_students
+    )
+
+    low_attendance_list = []
+
+    for (batch, section), students in attendance_summary.items():
+        for name, stats in students.items():
+            if stats["percentage"] < threshold:
+                low_attendance_list.append({
+                    "batch": batch,
+                    "section": section,
+                    "name": name,
+                    "present_classes": stats["present"],
+                    "total_classes": stats["total"],
+                    "attendance_percentage": stats["percentage"]
+                })
+
+    return low_attendance_list
 
 if __name__ == "__main__":
     # Load reports
@@ -229,3 +255,4 @@ if __name__ == "__main__":
                 print(f"\n📝 {rep['userFriendlyName']}")
                 for s, status in rep["attendanceMap"].items():
                     print(f"  {s}: {status}")
+

@@ -30,17 +30,135 @@ s3_client = boto3.client(
 
 dashboard_bp = Blueprint("dashboard_api", __name__)
 
-# -----------------------
-# API OVERVIEW ENDPOINT
-# -----------------------
+# =====================================================
+# 🔹 LOW ATTENDANCE HELPER FUNCTION
+# =====================================================
+def get_low_attendance_students(threshold=75):
+    """
+    Calculate low attendance students using reports in S3
+    """
+
+    # 1️⃣ Load students.xlsx
+    students_obj = s3_client.get_object(
+        Bucket=BUCKET_NAME,
+        Key="students.xlsx"
+    )
+    students_body = students_obj["Body"].read()
+    df_students = pd.read_excel(io.BytesIO(students_body))
+
+    # Expected columns:
+    # ER Number | Name | Batch | Section
+    students = df_students.to_dict(orient="records")
+
+    # 2️⃣ List reports
+    response = s3_client.list_objects_v2(
+        Bucket=BUCKET_NAME,
+        Prefix="reports/"
+    )
+
+    attendance_map = {}
+    total_classes = 0
+
+    for obj in response.get("Contents", []):
+        key = obj["Key"]
+
+        if not key.endswith((".xlsx", ".csv")):
+            continue
+
+        total_classes += 1
+
+        report_obj = s3_client.get_object(
+            Bucket=BUCKET_NAME,
+            Key=key
+        )
+        body = report_obj["Body"].read()
+
+        df = (
+            pd.read_csv(io.BytesIO(body))
+            if key.endswith(".csv")
+            else pd.read_excel(io.BytesIO(body))
+        )
+
+        if "ER Number" not in df.columns or "Status" not in df.columns:
+            continue
+
+        present_ers = set(
+            df[df["Status"].str.lower() == "present"]["ER Number"]
+        )
+
+        for s in students:
+            er = s["ER Number"]
+
+            attendance_map.setdefault(
+                er,
+                {
+                    "name": s.get("Name", "Unknown"),
+                    "batch": s.get("Batch", "Unknown"),
+                    "section": s.get("Section", "Unknown"),
+                    "present": 0
+                }
+            )
+
+            if er in present_ers:
+                attendance_map[er]["present"] += 1
+
+    # 3️⃣ Calculate percentages
+    low_attendance = []
+
+    for er, data in attendance_map.items():
+        percentage = (
+            round((data["present"] / total_classes) * 100, 2)
+            if total_classes > 0 else 0
+        )
+
+        if percentage < threshold:
+            low_attendance.append({
+                "erNumber": er,
+                "name": data["name"],
+                "batch": data["batch"],
+                "section": data["section"],
+                "presentClasses": data["present"],
+                "totalClasses": total_classes,
+                "attendancePercentage": percentage
+            })
+
+    return low_attendance
+
+
+# =====================================================
+# 🔹 LOW ATTENDANCE API
+# =====================================================
+@dashboard_bp.route("/api/trigger-low-attendance-alert", methods=["GET"])
+def trigger_low_attendance_alert():
+    try:
+        threshold = float(os.getenv("LOW_ATTENDANCE_THRESHOLD", 75))
+
+        students = get_low_attendance_students(threshold)
+
+        return jsonify({
+            "success": True,
+            "threshold": threshold,
+            "lowAttendanceCount": len(students),
+            "students": students
+        })
+
+    except Exception as e:
+        print("LOW ATTENDANCE ERROR:", e)
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+# =====================================================
+# 🔹 OVERVIEW API (UNCHANGED)
+# =====================================================
 @dashboard_bp.route("/api/overview", methods=["GET"])
 def class_overview():
     try:
         print("DEBUG: Using bucket ->", BUCKET_NAME)
 
-        # ===============================
-        # 1️⃣ Load students.xlsx SAFELY
-        # ===============================
+        # 1️⃣ Load students.xlsx
         try:
             students_obj = s3_client.get_object(
                 Bucket=BUCKET_NAME,
@@ -53,9 +171,7 @@ def class_overview():
             print("ERROR reading students.xlsx:", e)
             total_students = 0
 
-        # ===============================
-        # 2️⃣ List attendance reports
-        # ===============================
+        # 2️⃣ List reports
         response = s3_client.list_objects_v2(
             Bucket=BUCKET_NAME,
             Prefix="reports/"
@@ -70,8 +186,6 @@ def class_overview():
             if not key.endswith((".xlsx", ".csv")):
                 continue
 
-            print("DEBUG: Reading report ->", key)
-
             try:
                 report_obj = s3_client.get_object(
                     Bucket=BUCKET_NAME,
@@ -79,11 +193,11 @@ def class_overview():
                 )
                 report_body = report_obj["Body"].read()
 
-                # Load report
-                if key.endswith(".csv"):
-                    df = pd.read_csv(io.BytesIO(report_body))
-                else:
-                    df = pd.read_excel(io.BytesIO(report_body))
+                df = (
+                    pd.read_csv(io.BytesIO(report_body))
+                    if key.endswith(".csv")
+                    else pd.read_excel(io.BytesIO(report_body))
+                )
 
                 if df.empty:
                     continue
@@ -114,8 +228,7 @@ def class_overview():
                 # Monthly trend
                 if "Date" in df.columns:
                     df["Month"] = pd.to_datetime(
-                        df["Date"],
-                        errors="coerce"
+                        df["Date"], errors="coerce"
                     ).dt.strftime("%b")
 
                     trend = (
@@ -133,13 +246,10 @@ def class_overview():
                         })
 
             except Exception as e:
-                # ⚠️ DO NOT CRASH OVERVIEW IF ONE FILE FAILS
                 print(f"ERROR reading {key}:", e)
                 continue
 
-        # ===============================
-        # 3️⃣ Aggregate subject stats
-        # ===============================
+        # 3️⃣ Aggregate
         if subjects_data:
             df_subjects = pd.DataFrame(subjects_data)
             subjects_data = (
@@ -163,9 +273,6 @@ def class_overview():
             if subjects_data else None
         )
 
-        # ===============================
-        # 4️⃣ Final response
-        # ===============================
         return jsonify({
             "avgAttendance": avg_attendance,
             "totalStudents": total_students,
