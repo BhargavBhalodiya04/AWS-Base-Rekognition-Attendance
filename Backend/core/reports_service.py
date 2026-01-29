@@ -255,4 +255,3 @@ if __name__ == "__main__":
                 print(f"\n📝 {rep['userFriendlyName']}")
                 for s, status in rep["attendanceMap"].items():
                     print(f"  {s}: {status}")
-
