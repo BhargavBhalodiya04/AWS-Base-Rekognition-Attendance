@@ -20,21 +20,21 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # ---------------- BACKEND ----------------
-      - name: Build & Push Backend Image
+      # -------- BACKEND IMAGE --------
+      - name: Build & Push Backend
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
+          context: ./Backend
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/attendance-backend:latest
             ${{ secrets.DOCKER_USERNAME }}/attendance-backend:${{ github.sha }}
 
-      # ---------------- FRONTEND ----------------
-      - name: Build & Push Frontend Image
+      # -------- FRONTEND IMAGE --------
+      - name: Build & Push Frontend
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend
+          context: ./Front-end
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/attendance-frontend:latest
