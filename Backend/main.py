@@ -190,7 +190,7 @@ def upload_image():
         )
 
         # ✅ Update Excel file after upload
-        sync_students_to_excel()
+        # sync_students_to_excel()
 
         return jsonify({
             "success": True,
