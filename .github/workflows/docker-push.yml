@@ -1,4 +1,4 @@
-name: Build & Push Docker Images
+name: Build, Push & Deploy Docker Images
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   docker:
-    name: Build and Push Images
+    name: Build, Push and Deploy
     runs-on: ubuntu-latest
 
     steps:
@@ -25,7 +25,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-      
 
       # -----------------------------
       # Build & Push Backend Image
@@ -52,3 +51,17 @@ jobs:
           tags: |
             bhargavbb/frontend:latest
             bhargavbb/frontend:${{ github.sha }}
+
+      # -----------------------------
+      # Deploy to VM via SSH (AUTO DEPLOY)
+      # -----------------------------
+      - name: Deploy on VM
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/Attendance-System
+            docker compose pull
+            docker compose up -d
