@@ -32,6 +32,14 @@ export const ClassOverview = () => {
     const fetchOverview = async () => {
       try {
         const res = await fetch("http://65.0.42.143:5000/api/overview");
+        
+        if (!res.ok) {
+          console.error(`API error: ${res.status} ${res.statusText}`);
+          const errorText = await res.text();
+          console.error("Response body:", errorText);
+          throw new Error(`API returned status ${res.status}`);
+        }
+        
         const data = await res.json();
 
         if (!data.error) {
@@ -45,10 +53,10 @@ export const ClassOverview = () => {
             bestBatch: data.bestBatch || "N/A",
           });
         } else {
-          console.error("Error fetching overview:", data.error);
+          console.error("API error response:", data.error);
         }
       } catch (err) {
-        console.error("Error fetching overview:", err);
+        console.error("Error fetching overview data:", err);
       } finally {
         setLoading(false);
       }

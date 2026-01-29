@@ -30,7 +30,19 @@ export const AttendanceAnalytics = () => {
     const fetchData = async () => {
       try {
         const res = await fetch("http://65.0.42.143:5000/api/overview");
+        
+        if (!res.ok) {
+          console.error(`API error: ${res.status} ${res.statusText}`);
+          const errorText = await res.text();
+          console.error("Response body:", errorText);
+          throw new Error(`API returned status ${res.status}`);
+        }
+        
         const json = await res.json();
+        
+        if (json.error) {
+          console.error("API error response:", json.error);
+        }
 
         setData({
           students: json.students || [],
@@ -38,7 +50,7 @@ export const AttendanceAnalytics = () => {
           subject_pie_chart: json.subject_pie_chart
         });
       } catch (err) {
-        console.error("Failed to fetch data:", err);
+        console.error("Error fetching dashboard data:", err);
       } finally {
         setLoading(false);
       }

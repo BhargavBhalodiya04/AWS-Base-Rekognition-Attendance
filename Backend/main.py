@@ -40,6 +40,21 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 # Enable CORS for React frontend
 CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*"}})
 
+# -------------------------
+# Global Error Handlers (return JSON for API errors)
+# -------------------------
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({"error": "Endpoint not found"}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({"error": "Internal server error", "details": str(error)}), 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    return jsonify({"error": "An error occurred", "details": str(e)}), 500
+
 # Initialize AWS clients
 rekognition_client = boto3.client(
     "rekognition",
