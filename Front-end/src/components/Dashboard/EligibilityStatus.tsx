@@ -8,6 +8,9 @@ import {
     Legend
 } from "recharts";
 import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { StudentAttendanceDetail } from "./StudentAttendanceDetail";
+
+const API_BASE = import.meta.env.VITE_API_BASE || "http://65.0.42.143:5000";
 
 export const EligibilityStatus = () => {
     const [students, setStudents] = useState<any[]>([]);
@@ -18,6 +21,7 @@ export const EligibilityStatus = () => {
     });
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'eligible' | 'ineligible'>('all');
+    const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
 
     // Constants for eligibility
     const ELIGIBILITY_THRESHOLD = 75;
@@ -28,28 +32,19 @@ export const EligibilityStatus = () => {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                // Simulating API call
-                // const res = await fetch("http://65.0.42.143:5000/api/students/eligibility");
-                // const json = await res.json();
+                const res = await fetch(`${API_BASE}/api/eligibility`);
+                const data = await res.json();
 
-                // Using mock data based on reasonable assumptions if API isn't ready
-                // Ideally we'd fetch this. For now, let's generate some dummy data to show the UI
-                const mockStudents = Array.from({ length: 20 }, (_, i) => ({
-                    id: i + 1,
-                    name: `Student ${i + 1}`,
-                    er_number: `210${i + 100}`,
-                    attendance_pct: Math.floor(Math.random() * 40) + 60 // Random between 60-100
-                }));
+                if (data.success && Array.isArray(data.students)) {
+                    setStudents(data.students);
 
-                const eligibleCount = mockStudents.filter(s => s.attendance_pct >= ELIGIBILITY_THRESHOLD).length;
-
-                setStudents(mockStudents);
-                setStats({
-                    eligible: eligibleCount,
-                    ineligible: mockStudents.length - eligibleCount,
-                    total: mockStudents.length
-                });
-
+                    const eligibleCount = data.students.filter((s: any) => s.attendance_percentage >= ELIGIBILITY_THRESHOLD).length;
+                    setStats({
+                        eligible: eligibleCount,
+                        ineligible: data.students.length - eligibleCount,
+                        total: data.students.length
+                    });
+                }
             } catch (err) {
                 console.error("Eligibility fetch failed:", err);
             } finally {
@@ -66,7 +61,7 @@ export const EligibilityStatus = () => {
     ];
 
     const filteredStudents = students.filter(student => {
-        const isEligible = student.attendance_pct >= ELIGIBILITY_THRESHOLD;
+        const isEligible = student.attendance_percentage >= ELIGIBILITY_THRESHOLD;
         if (filter === 'eligible') return isEligible;
         if (filter === 'ineligible') return !isEligible;
         return true;
@@ -79,6 +74,16 @@ export const EligibilityStatus = () => {
                     Checking eligibility criteria...
                 </p>
             </div>
+        );
+    }
+
+    if (selectedStudent) {
+        return (
+            <StudentAttendanceDetail
+                erNumber={selectedStudent.er_number}
+                studentName={selectedStudent.name}
+                onBack={() => setSelectedStudent(null)}
+            />
         );
     }
 
@@ -170,10 +175,14 @@ export const EligibilityStatus = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                    {filteredStudents.map((student) => {
-                                        const isEligible = student.attendance_pct >= ELIGIBILITY_THRESHOLD;
+                                    {filteredStudents.map((student, index) => {
+                                        const isEligible = student.attendance_percentage >= ELIGIBILITY_THRESHOLD;
                                         return (
-                                            <tr key={student.id} className="hover:bg-gray-50">
+                                            <tr
+                                                key={index}
+                                                className="hover:bg-gray-50 cursor-pointer transition-colors"
+                                                onClick={() => setSelectedStudent(student)}
+                                            >
                                                 <td className="p-4 text-sm text-gray-700 font-mono">{student.er_number}</td>
                                                 <td className="p-4 text-sm text-gray-800 font-medium">{student.name}</td>
                                                 <td className="p-4 text-sm">
@@ -181,10 +190,10 @@ export const EligibilityStatus = () => {
                                                         <div className="w-16 bg-gray-200 rounded-full h-2">
                                                             <div
                                                                 className={`h-2 rounded-full ${isEligible ? 'bg-green-500' : 'bg-red-500'}`}
-                                                                style={{ width: `${Math.min(student.attendance_pct, 100)}%` }}
+                                                                style={{ width: `${Math.min(student.attendance_percentage, 100)}%` }}
                                                             ></div>
                                                         </div>
-                                                        <span className="font-semibold">{student.attendance_pct}%</span>
+                                                        <span className="font-semibold">{student.attendance_percentage}%</span>
                                                     </div>
                                                 </td>
                                                 <td className="p-4">

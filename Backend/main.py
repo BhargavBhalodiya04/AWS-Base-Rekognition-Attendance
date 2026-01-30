@@ -427,7 +427,7 @@ def students_count():
 
 # from core.generate_attendance_charts import generate_charts
 from flask import Flask, render_template
-from core.generate_attendance_charts import generate_overall_attendance
+from core.generate_attendance_charts import generate_overall_attendance, get_student_details
 
 # app = Flask(__name__)
 
@@ -447,6 +447,34 @@ def dashboard():
         )
     except Exception as e:
         return render_template("dashboard.html", error=str(e))
+
+
+@app.route('/api/eligibility', methods=['GET'])
+def api_eligibility():
+    try:
+        charts = generate_overall_attendance()
+        # Transform for frontend - extracting students list with percentage
+        students = charts.get("students", [])
+        return jsonify({
+            "success": True,
+            "students": students,
+            "avg_attendance": charts.get("avg_attendance_pct", "0%")
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/student/<er_number>', methods=['GET'])
+def api_student_details(er_number):
+    try:
+        details = get_student_details(er_number)
+        return jsonify({
+            "success": True,
+            "er_number": er_number,
+            "attendance_records": details
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 from core.overview import dashboard_bp
