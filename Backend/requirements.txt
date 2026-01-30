@@ -5,3 +5,5 @@ python-dotenv
 flask-cors
 pandas
 matplotlib
+prometheus-client
+werkzeug

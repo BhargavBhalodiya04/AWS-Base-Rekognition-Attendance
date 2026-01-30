@@ -5,6 +5,7 @@ import csv
 from datetime import datetime, timedelta, timezone
 import boto3
 from flask import jsonify
+import time
 # from core.list_s3_reports import list_s3_reports
 from dotenv import load_dotenv
 from flask import (
@@ -13,6 +14,8 @@ from flask import (
 )
 from flask_cors import CORS
 from flask import send_from_directory
+from werkzeug.utils import secure_filename
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
 sys.dont_write_bytecode = True
 
@@ -39,6 +42,48 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # Enable CORS for React frontend
 CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*"}})
+
+
+# =========================
+# 🔥 PROMETHEUS METRICS (ADDED)
+# =========================
+
+REQUEST_COUNT = Counter(
+    "flask_http_requests_total",
+    "Total HTTP requests",
+    ["method", "endpoint", "status"]
+)
+
+REQUEST_LATENCY = Histogram(
+    "flask_http_request_latency_seconds",
+    "Request latency",
+    ["endpoint"]
+)
+
+@app.before_request
+def start_timer():
+    request.start_time = time.time()
+
+@app.after_request
+def record_metrics(response):
+    try:
+        endpoint = request.path
+        duration = time.time() - request.start_time
+
+        REQUEST_COUNT.labels(
+            method=request.method,
+            endpoint=endpoint,
+            status=response.status_code
+        ).inc()
+
+        REQUEST_LATENCY.labels(endpoint).observe(duration)
+    except Exception:
+        pass
+    return response
+
+@app.route("/metrics")
+def metrics():
+    return generate_latest(), 200, {"Content-Type": CONTENT_TYPE_LATEST}
 
 # -------------------------
 # Global Error Handlers (return JSON for API errors)
@@ -73,6 +118,8 @@ s3_client = boto3.client(
 from core.upload_to_s3 import upload_multiple_images
 from core.update_excel import sync_students_to_excel
 from core.mark_batch_attendance import mark_batch_attendance_s3
+from core.generate_attendance_charts import generate_overall_attendance
+from core.overview import dashboard_bp
 
 USER = {'username': 'admin', 'password': 'admin'}
 
@@ -122,44 +169,6 @@ def action_page(action):
     elif action == 'batch_attendance_upload':
         return redirect(url_for('batch_attendance_upload'))
     return "Invalid action selected.", 400
-
-
-# @app.route('/upload-image', methods=['POST'])
-# def upload_image():
-#     bucket_name = request.form.get('bucket_name', '').strip() or 'ict-attendances'
-#     batch_name = request.form.get('batch_name', '').strip()
-#     er_number = request.form.get('er_number', '').strip()
-#     student_name = request.form.get('student_name', '').strip() or request.form.get('name', '').strip()
-
-#     image_files = request.files.getlist('images')
-#     single_file = request.files.get('file')
-#     if single_file and (not image_files or len(image_files) == 0):
-#         image_files = [single_file]
-
-#     if not all([bucket_name, batch_name, er_number, student_name]) or not image_files or not any(getattr(f, 'filename', '') for f in image_files):
-#         return jsonify({"error": "❌ All fields are required and images must be selected."}), 400
-
-#     try:
-#         # ✅ Upload images to S3
-#         upload_results = upload_multiple_images(batch_name, er_number, student_name, image_files)
-
-#         # ✅ Update Excel file after upload
-#         sync_students_to_excel()
-
-#         return jsonify({
-#             "success": True,
-#             "student": {
-#                 "er_number": er_number,
-#                 "name": student_name,
-#                 "batch_name": batch_name,
-#                 "bucket_name": bucket_name
-#             },
-#             "results": upload_results,
-#             "message": "✅ Upload successful and Excel updated."
-#         }), 200
-
-#     except Exception as e:
-#         return jsonify({"error": f"❌ Upload failed: {str(e)}"}), 500
 
 @app.route('/upload-image', methods=['POST'])
 def upload_image():
@@ -328,8 +337,7 @@ def upload_excel():
 
     file = request.files['file']
     batch_name = request.form.get('batch_name', 'default_batch')
-    filename = secure_filename(file.filename)
-
+    from werkzeug.utils import secure_filename
     s3 = boto3.client('s3')
     s3.upload_fileobj(file, BUCKET_NAME, f"{batch_name}/{filename}")
 
@@ -427,16 +435,6 @@ from core.overview import dashboard_bp
 # Register Blueprints
 app.register_blueprint(dashboard_bp)
 
-
-# if __name__ == '__main__':
-#     app.run(debug=True)
-
-
-# if __name__ == '__main__':
-#     print("✅ Starting Flask server on http://localhost:5000 ...")
-#     app.run(debug=True)
-
-    
 if __name__ == '__main__':
     print("✅ Starting Flask server on http://0.0.0.0:5000 ...")
     app.run(host="0.0.0.0", port=5000, debug=True)
