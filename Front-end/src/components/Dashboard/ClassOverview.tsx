@@ -31,15 +31,16 @@ export const ClassOverview = () => {
   useEffect(() => {
     const fetchOverview = async () => {
       try {
-        const res = await fetch("http://65.0.42.143:5000/api/overview");
-        
+        const API_BASE = import.meta.env.VITE_API_BASE || "http://65.0.42.143:5000";
+        const res = await fetch(`${API_BASE}/api/overview`);
+
         if (!res.ok) {
           console.error(`API error: ${res.status} ${res.statusText}`);
           const errorText = await res.text();
           console.error("Response body:", errorText);
           throw new Error(`API returned status ${res.status}`);
         }
-        
+
         const data = await res.json();
 
         if (!data.error) {

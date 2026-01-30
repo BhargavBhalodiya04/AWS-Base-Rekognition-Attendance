@@ -78,7 +78,8 @@ export default function ReportsPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("http://65.0.42.143:5000/api/reports")
+    const API_BASE = import.meta.env.VITE_API_BASE || "http://65.0.42.143:5000";
+    fetch(`${API_BASE}/api/reports`)
       .then((res) => res.json())
       .then((data: Report[]) => {
         const normalized = data.map((r) => {

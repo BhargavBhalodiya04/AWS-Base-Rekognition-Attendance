@@ -25,7 +25,8 @@ export const AttendanceAnalytics = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch("http://65.0.42.143:5000/api/overview");
+        const API_BASE = import.meta.env.VITE_API_BASE || "http://65.0.42.143:5000";
+        const res = await fetch(`${API_BASE}/api/overview`);
         if (!res.ok) throw new Error("API error");
 
         const json = await res.json();

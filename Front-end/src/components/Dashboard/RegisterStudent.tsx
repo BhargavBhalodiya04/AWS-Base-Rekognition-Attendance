@@ -71,7 +71,8 @@ const RegisterStudent: React.FC<RegisterStudentProps> = ({ onStudentAdded }) => 
     formData.append("parent_phone", parentPhone); // ✅ ADDED
 
     try {
-      const response = await fetch("http://65.0.42.143:5000/upload-image", {
+      const API_BASE = import.meta.env.VITE_API_BASE || "http://65.0.42.143:5000";
+      const response = await fetch(`${API_BASE}/upload-image`, {
         method: "POST",
         body: formData,
       });
