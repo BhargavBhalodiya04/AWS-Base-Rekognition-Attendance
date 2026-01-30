@@ -2,6 +2,13 @@ import boto3
 import os
 from datetime import datetime
 from openpyxl import Workbook
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+AWS_REGION = os.getenv("AWS_REGION", "ap-south-1")
+AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY")
+AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY")
 
 # Get individual student image bytes from S3
 def get_photo_bytes_from_s3(bucket, key):
@@ -106,7 +113,7 @@ def mark_batch_attendance_s3(
     class_name,
     subject,
     group_image_files,
-    s3_bucket='ict-attendance',
+    s3_bucket='ict-attendances',
     region='ap-south-1'
 ):
     rekognition = boto3.client('rekognition', region_name=region)
