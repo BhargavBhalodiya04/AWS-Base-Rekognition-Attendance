@@ -135,7 +135,8 @@ def mark_batch_attendance_s3(
             quality_report['face_detected'] = False
             quality_report['error'] = "No faces detected"
             quality_reports.append(quality_report)
-            raise ValueError("❌ No face detected in group image.")
+            print("⚠️ No face detected in group image. Skipping...")
+            continue
         
         quality_report['face_detected'] = True
         quality_report['face_count'] = len(detection['FaceDetails'])
