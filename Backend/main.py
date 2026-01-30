@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 import boto3
 from flask import jsonify
 import time
+import logging
 # from core.list_s3_reports import list_s3_reports
 from dotenv import load_dotenv
 from flask import (
@@ -44,8 +45,25 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*"}})
 
 
+logging.basicConfig(
+    filename="/var/log/attendance-backend.log",
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s"
+)
+
+@app.after_request
+def log_request(response):
+    logging.info(
+        "%s %s %s %s",
+        request.remote_addr,
+        request.method,
+        request.path,
+        response.status_code
+    )
+    return response
+
 # =========================
-# 🔥 PROMETHEUS METRICS (ADDED)
+# PROMETHEUS METRICS (ADDED)
 # =========================
 
 REQUEST_COUNT = Counter(
