@@ -1,8 +1,10 @@
-import cv2
-import numpy as np
 import io
 
 def analyze_image_quality(image_bytes):
+    # Lazy import to avoid startup crash if libraries are missing
+    import cv2
+    import numpy as np
+
     try:
         # Convert bytes to numpy array for OpenCV
         nparr = np.frombuffer(image_bytes, np.uint8)
@@ -47,6 +49,8 @@ def analyze_image_quality(image_bytes):
             "suggestion": suggestion
         }
 
+    except ImportError:
+        return {"error": "OpenCV or Numpy not installed on server."}
     except Exception as e:
         print(f"Error in quality check: {e}")
         return {"error": str(e)}

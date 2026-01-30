@@ -483,5 +483,5 @@ from core.overview import dashboard_bp
 app.register_blueprint(dashboard_bp)
 
 if __name__ == '__main__':
-    print("✅ Starting Flask server on http://0.0.0.0:5000 ...")
+    print("[INFO] Starting Flask server on http://0.0.0.0:5000 ...")
     app.run(host="0.0.0.0", port=5000, debug=True)

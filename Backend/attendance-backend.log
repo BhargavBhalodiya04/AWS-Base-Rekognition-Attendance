@@ -1,0 +1,12 @@
+2026-01-30 19:45:04,093 INFO Found credentials in environment variables.
+2026-01-30 19:51:37,072 INFO Found credentials in environment variables.
+2026-01-30 19:52:50,735 INFO Found credentials in environment variables.
+2026-01-30 19:52:55,778 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.20.14.47:5000
+2026-01-30 19:52:55,778 INFO [33mPress CTRL+C to quit[0m
+2026-01-30 19:52:55,783 INFO  * Restarting with stat
+2026-01-30 19:52:56,947 INFO Found credentials in environment variables.
+2026-01-30 19:52:59,162 WARNING  * Debugger is active!
+2026-01-30 19:52:59,181 INFO  * Debugger PIN: 452-031-955
