@@ -99,6 +99,8 @@ def save_attendance_to_excel(attendance_data, absent_data, batch_name, class_nam
     file_url = f"https://{s3_bucket}.s3.{region}.amazonaws.com/{s3_key}"
     return filepath, file_url
 
+from core.quality_check import analyze_image_quality
+
 def mark_batch_attendance_s3(
     batch_name,
     class_name,
@@ -114,17 +116,52 @@ def mark_batch_attendance_s3(
     student_image_keys = list_student_images_from_s3(s3_bucket, batch_prefix)
 
     present_students = {}
+    quality_reports = []  # ✅ Store quality reports for each image
 
-    for group_img_file in group_image_files:
+    for i, group_img_file in enumerate(group_image_files):
         group_bytes = group_img_file.read()
 
+        # ✅ 1. Run Quality Check
+        quality_report = analyze_image_quality(group_bytes)
+        quality_report['image_index'] = i + 1
+        
+        # ✅ 2. Run Rekognition Detection to get Face Metrics
         detection = rekognition.detect_faces(
             Image={'Bytes': group_bytes},
-            Attributes=['DEFAULT']
+            Attributes=['ALL']
         )
+        
         if not detection['FaceDetails']:
+            quality_report['face_detected'] = False
+            quality_report['error'] = "No faces detected"
+            quality_reports.append(quality_report)
             raise ValueError("❌ No face detected in group image.")
+        
+        quality_report['face_detected'] = True
+        quality_report['face_count'] = len(detection['FaceDetails'])
+        
+        # Calculate Average Face Quality Metrics from Rekognition
+        avg_confidence = 0
+        total_face_area = 0
+        
+        for face in detection['FaceDetails']:
+            avg_confidence += face['Confidence']
+            box = face['BoundingBox']
+            total_face_area += box['Width'] * box['Height']
+            
+        avg_confidence /= len(detection['FaceDetails'])
+        face_coverage = total_face_area * 100 # Percentage of image covered by faces
+        
+        quality_report['avg_face_confidence'] = round(avg_confidence, 2)
+        quality_report['face_coverage_pct'] = round(face_coverage, 2)
+        
+        # Add suggestion if coverage is too low
+        if face_coverage < 1.0: # Less than 1% of image is faces
+            quality_report['suggestion'] += " Faces are too small or far away. Move closer."
 
+        quality_reports.append(quality_report)
+        
+        # ✅ 3. Compare Faces
         for key in student_image_keys:
             try:
                 student_bytes = get_photo_bytes_from_s3(s3_bucket, key)
@@ -170,5 +207,5 @@ def mark_batch_attendance_s3(
     attendance_list, absent_students, batch_name, class_name, subject, s3_bucket, region
 )
 
-    # ✅ Return present, absent, and excel URL
-    return attendance_list, absent_students, file_url
+    # ✅ Return present, absent, excel URL, AND quality reports
+    return attendance_list, absent_students, file_url, quality_reports

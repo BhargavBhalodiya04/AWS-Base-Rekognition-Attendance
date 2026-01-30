@@ -249,7 +249,7 @@ def take_attendance():
             return jsonify({"success": False, "error": "Batch, Subject, and class_images are required"}), 400
 
         # Run batch attendance
-        attendance_list, absent_students, file_url = mark_batch_attendance_s3(
+        attendance_list, absent_students, file_url, quality_reports = mark_batch_attendance_s3(
             batch_name=batch_name,
             class_name=lab_name,
             subject=subject_name,
@@ -259,7 +259,8 @@ def take_attendance():
             "success": True,
             "present": attendance_list,      # full objects with er_number + name
             "absent": absent_students,       # full objects with er_number + name
-            "report_url": file_url
+            "report_url": file_url,
+            "quality_reports": quality_reports # ✅ Return quality reports
         }), 200
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

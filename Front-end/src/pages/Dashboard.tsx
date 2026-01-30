@@ -43,8 +43,25 @@ type AttendanceResult = {
   error?: string;
   present?: StudentRecord[];
   absent?: StudentRecord[];
+  quality_reports?: QualityReport[];
   [k: string]: any;
 };
+
+interface QualityReport {
+  image_index: number;
+  resolution: string;
+  blur_score: number;
+  is_blurry: boolean;
+  brightness: number;
+  lighting_status: string;
+  contrast: number;
+  face_detected: boolean;
+  face_count?: number;
+  avg_face_confidence?: number;
+  face_coverage_pct?: number;
+  suggestion: string;
+  error?: string;
+}
 
 const Dashboard = () => {
   const [currentView, setCurrentView] = useState<DashboardView>("main");
@@ -59,7 +76,8 @@ const Dashboard = () => {
   const [className, setClassName] = useState("");
   const [subject, setSubject] = useState("");
   const [groupImages, setGroupImages] = useState<FileList | null>(null);
-  const [attendanceResult, setAttendanceResult] = useState<AttendanceResult | null>(null);
+  const [stats, setStats] = useState({ present: 0, absent: 0, total: 0 }); // Added stats state
+  const [attendanceData, setAttendanceData] = useState<{ present: any[], absent: any[], reportUrl: string, qualityReports?: QualityReport[] } | null>(null); // Updated attendanceResult to attendanceData
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -102,7 +120,7 @@ const Dashboard = () => {
   const handleAttendanceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
-    setAttendanceResult(null);
+    setAttendanceData(null); // Changed setAttendanceResult to setAttendanceData
 
     if (!groupImages || groupImages.length === 0) {
       setErrorMsg("Please select at least one group image.");
@@ -136,7 +154,13 @@ const Dashboard = () => {
       } else if (data.success === false) {
         setErrorMsg(data.error || "Attendance failed");
       } else {
-        setAttendanceResult(data);
+        setAttendanceData({ // Changed setAttendanceResult to setAttendanceData
+          present: data.present || [],
+          absent: data.absent || [],
+          reportUrl: data.report_url || '',
+          qualityReports: data.quality_reports || []
+        });
+        setCurrentView('analytics'); // Added this line as per instruction
       }
     } catch (err: any) {
       console.error("Attendance error:", err);
@@ -371,13 +395,13 @@ const Dashboard = () => {
       </form>
 
       {/* Attendance Result */}
-      {attendanceResult && (
+      {attendanceData && ( // Changed attendanceResult to attendanceData
         <div className="mt-10 bg-gray-50 p-6 rounded-lg border">
           <h4 className="font-semibold mb-4 text-lg">Attendance Result</h4>
 
           <div className="flex flex-col md:flex-row gap-6">
             {/* Present Students */}
-            {attendanceResult?.present && attendanceResult.present.length > 0 ? (
+            {attendanceData?.present && attendanceData.present.length > 0 ? ( // Changed attendanceResult to attendanceData
               <table className="w-full border border-gray-300 rounded-lg mb-6">
                 <thead className="bg-gray-100">
                   <tr>
@@ -387,7 +411,7 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {attendanceResult.present.map((student, idx) => (
+                  {attendanceData.present.map((student, idx) => ( // Changed attendanceResult to attendanceData
                     <tr key={idx} className="hover:bg-gray-50">
                       <td className="border px-4 py-2">{idx + 1}</td>
                       <td className="border px-4 py-2">{student.er_number}</td>
@@ -401,7 +425,7 @@ const Dashboard = () => {
             )}
 
             {/* Absent Students */}
-            {attendanceResult?.absent && attendanceResult.absent.length > 0 ? (
+            {attendanceData?.absent && attendanceData.absent.length > 0 ? ( // Changed attendanceResult to attendanceData
               <table className="w-full border border-gray-300 rounded-lg mb-6">
                 <thead className="bg-gray-100">
                   <tr>
@@ -411,7 +435,7 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {attendanceResult.absent.map((student, idx) => (
+                  {attendanceData.absent.map((student, idx) => ( // Changed attendanceResult to attendanceData
                     <tr key={idx} className="hover:bg-gray-50">
                       <td className="border px-4 py-2">{idx + 1}</td>
                       <td className="border px-4 py-2">{student.er_number}</td>
@@ -424,6 +448,71 @@ const Dashboard = () => {
               <p className="text-sm text-gray-500 mb-6">No absent students.</p>
             )}
           </div>
+
+          {/* Quality Reports */}
+          {attendanceData.qualityReports && attendanceData.qualityReports.length > 0 && (
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-blue-600" />
+                Image Quality Analysis
+              </h3>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {attendanceData.qualityReports.map((report, idx) => (
+                  <div key={idx} className={`p-4 rounded-lg border shadow-sm ${report.is_blurry || report.lighting_status !== 'Good' ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'}`}>
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="font-bold text-gray-700">Image {report.image_index}</span>
+                      {report.error ? (
+                        <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">Error</span>
+                      ) : (
+                        <span className={`text-xs px-2 py-1 rounded font-bold border ${report.is_blurry || report.lighting_status !== 'Good' ? 'bg-orange-100 text-orange-800 border-orange-200' : 'bg-green-100 text-green-800 border-green-200'}`}>
+                          Score: {Math.max(0, 100 - (report.is_blurry ? 30 : 0) - (report.lighting_status !== 'Good' ? 20 : 0))}%
+                        </span>
+                      )}
+                    </div>
+
+                    {report.error ? (
+                      <p className="text-sm text-red-600">{report.error}</p>
+                    ) : (
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between items-center border-b pb-1 border-gray-200 border-opacity-50">
+                          <span className="text-gray-600">Lighting</span>
+                          <span className={`font-medium ${report.lighting_status === 'Good' ? 'text-green-700' : 'text-orange-700'}`}>{report.lighting_status}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b pb-1 border-gray-200 border-opacity-50">
+                          <span className="text-gray-600">Focus</span>
+                          <span className={`font-medium ${!report.is_blurry ? 'text-green-700' : 'text-orange-700'}`}>{!report.is_blurry ? 'Sharp' : 'Blurry'}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600">Faces</span>
+                          <span className="font-medium text-gray-800">{report.face_count || 0} detected</span>
+                        </div>
+                        {report.suggestion && (
+                          <div className="mt-2 text-xs text-blue-800 bg-blue-50 p-2 rounded border border-blue-100 flex gap-1 items-start">
+                            <span>💡</span>
+                            <span>{report.suggestion}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Report Download Link */}
+          {attendanceData.reportUrl && (
+            <div className="mt-8 text-center">
+              <a
+                href={attendanceData.reportUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              >
+                Download Attendance Report
+              </a>
+            </div>
+          )}
         </div>
       )}
     </div>
