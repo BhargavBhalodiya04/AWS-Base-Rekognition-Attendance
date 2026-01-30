@@ -9,7 +9,9 @@ import {
   Plus,
   Scan,
   Bell,
+  ShieldCheck,
 } from "lucide-react";
+import { EligibilityStatus } from "@/components/Dashboard/EligibilityStatus";
 import { DashboardHeader } from "@/components/Dashboard/DashboardHeader";
 import { DashboardCard } from "@/components/Dashboard/DashboardCard";
 import { StudentGallery } from "@/components/Dashboard/StudentGallery";
@@ -28,7 +30,8 @@ type DashboardView =
   | "classes"
   | "register"
   | "attendance"
-  | "alerts";
+  | "alerts"
+  | "eligibility";
 
 type StudentRecord = {
   er_number?: string;
@@ -208,6 +211,13 @@ const Dashboard = () => {
       icon: Bell,
       variant: "warning" as const,
       view: "alerts" as DashboardView,
+    },
+    {
+      title: "Eligibility Status",
+      description: "Check student eligibility based on attendance",
+      icon: ShieldCheck,
+      variant: "primary" as const,
+      view: "eligibility" as DashboardView,
     },
   ];
 
@@ -436,6 +446,8 @@ const Dashboard = () => {
         return renderAttendanceView();
       case "alerts":
         return renderAlertsView();
+      case "eligibility":
+        return <EligibilityStatus />;
       default:
         return (
           <div className="space-y-8">
