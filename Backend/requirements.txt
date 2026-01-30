@@ -7,5 +7,5 @@ pandas
 matplotlib
 prometheus-client
 werkzeug
-opencv-python
 numpy
+opencv-python-headless
