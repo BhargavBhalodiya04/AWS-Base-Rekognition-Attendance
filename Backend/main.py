@@ -46,7 +46,7 @@ CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*"}})
 
 
 logging.basicConfig(
-    filename="/var/log/attendance-backend.log",
+    filename="attendance-backend.log",
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s"
 )
