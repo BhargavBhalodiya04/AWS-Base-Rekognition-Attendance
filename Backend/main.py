@@ -236,6 +236,27 @@ def upload_image():
         return jsonify({"error": f"❌ Upload failed: {str(e)}"}), 500
 
 
+
+# ---------------- JSON Quality Check API ---------------- #
+from core.check_image_quality import assess_quality_only
+
+@app.route('/api/check_quality', methods=['POST'])
+def check_quality():
+    try:
+        group_images = request.files.getlist('class_images')
+        if not group_images:
+            return jsonify({"success": False, "error": "No images provided"}), 400
+
+        quality_reports = assess_quality_only(group_images)
+        
+        return jsonify({
+            "success": True,
+            "quality_reports": quality_reports
+        }), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # ---------------- JSON Attendance API ---------------- #
 @app.route('/take_attendance', methods=['POST'])
 def take_attendance():

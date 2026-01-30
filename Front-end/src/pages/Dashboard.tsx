@@ -117,6 +117,46 @@ const Dashboard = () => {
     fetchReportsCount();
   }, []);
 
+  const handleQualityCheck = async () => {
+    if (!groupImages || groupImages.length === 0) {
+      setErrorMsg("Please upload at least one image first.");
+      return;
+    }
+    setLoading(true);
+    setErrorMsg(null);
+    setAttendanceData(null); // Clear previous results
+
+    try {
+      const formData = new FormData();
+      Array.from(groupImages).forEach((file) => {
+        formData.append("class_images", file);
+      });
+
+      const API_BASE = import.meta.env.VITE_API_BASE || "http://65.0.42.143:5000";
+      const res = await fetch(`${API_BASE}/api/check_quality`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setAttendanceData({
+          present: [],
+          absent: [],
+          reportUrl: "",
+          qualityReports: data.quality_reports || []
+        });
+      } else {
+        setErrorMsg(data.error || "Quality check failed.");
+      }
+    } catch (err: any) {
+      console.error("Quality check error:", err);
+      setErrorMsg(err.message || "Network error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAttendanceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -385,21 +425,95 @@ const Dashboard = () => {
           </div>
         )}
 
-        <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-3 rounded-md font-medium shadow hover:bg-blue-700 transition-colors"
-          disabled={loading}
-        >
-          {loading ? "Processing..." : "Mark Attendance"}
-        </button>
+
+        {/* Actions Row */}
+        <div className="flex gap-4">
+          <button
+            type="button"
+            onClick={handleQualityCheck}
+            className="flex-1 bg-yellow-600 text-white py-3 rounded-md font-medium shadow hover:bg-yellow-700 transition-colors"
+            disabled={loading}
+          >
+            {loading && !attendanceData ? "Checking..." : "Step 1: Analyze Quality"}
+          </button>
+
+          <button
+            type="submit"
+            className={`flex-1 text-white py-3 rounded-md font-medium shadow transition-colors ${attendanceData?.qualityReports ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'
+              }`}
+            disabled={loading || !attendanceData?.qualityReports}
+          >
+            {loading && attendanceData ? "Marking..." : "Step 2: Mark Attendance"}
+          </button>
+        </div>
       </form>
 
+      {/* Quality Reports (Show Immediately) */}
+      {attendanceData?.qualityReports && attendanceData.qualityReports.length > 0 && (
+        <div className="mt-8 mb-8">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-blue-600" />
+            Image Quality Analysis
+          </h3>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {attendanceData.qualityReports.map((report, idx) => (
+              <div key={idx} className={`p-4 rounded-lg border shadow-sm ${report.is_blurry || report.lighting_status !== 'Good' || !report.face_detected ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'}`}>
+                <div className="flex justify-between items-start mb-2">
+                  <span className="font-bold text-gray-700">Image {report.image_index}</span>
+                  {Math.max(0, 100 - (report.is_blurry ? 30 : 0) - (report.lighting_status !== 'Good' ? 20 : 0) - (!report.face_detected ? 50 : 0)) >= 80 ? (
+                    <span className="text-xs px-2 py-1 rounded font-bold border bg-green-100 text-green-800 border-green-200">
+                      Excellent
+                    </span>
+                  ) : (
+                    <span className="text-xs px-2 py-1 rounded font-bold border bg-orange-100 text-orange-800 border-orange-200">
+                      Needs Attention
+                    </span>
+                  )}
+                </div>
+
+                {report.error ? (
+                  <p className="text-sm text-red-600 font-medium">{report.error}</p>
+                ) : (
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between items-center border-b pb-1 border-gray-200 border-opacity-50">
+                      <span className="text-gray-600">Lighting</span>
+                      <span className={`font-medium ${report.lighting_status === 'Good' ? 'text-green-700' : 'text-orange-700'}`}>{report.lighting_status}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b pb-1 border-gray-200 border-opacity-50">
+                      <span className="text-gray-600">Focus</span>
+                      <span className={`font-medium ${!report.is_blurry ? 'text-green-700' : 'text-orange-700'}`}>{!report.is_blurry ? 'Sharp' : 'Blurry'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Faces</span>
+                      <span className={`font-medium ${report.face_count > 0 ? 'text-gray-800' : 'text-red-600'}`}>
+                        {report.face_count || 0} detected
+                      </span>
+                    </div>
+                    {report.suggestion && (
+                      <div className="mt-2 text-xs text-blue-800 bg-blue-50 p-2 rounded border border-blue-100 flex gap-1 items-start">
+                        <span>💡</span>
+                        <span>{report.suggestion}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 p-4 bg-blue-50 text-blue-800 rounded-md text-sm">
+            ℹ️ Review the quality check above. If everything looks good, proceed to <strong>Step 2: Mark Attendance</strong>.
+          </div>
+        </div>
+      )}
+
       {/* Attendance Result */}
-      {attendanceData && ( // Changed attendanceResult to attendanceData
+      {attendanceData?.present && ( // Only show results if present list exists
         <div className="mt-10 bg-gray-50 p-6 rounded-lg border">
           <h4 className="font-semibold mb-4 text-lg">Attendance Result</h4>
 
           <div className="flex flex-col md:flex-row gap-6">
+
             {/* Present Students */}
             {attendanceData?.present && attendanceData.present.length > 0 ? ( // Changed attendanceResult to attendanceData
               <table className="w-full border border-gray-300 rounded-lg mb-6">
@@ -449,56 +563,6 @@ const Dashboard = () => {
             )}
           </div>
 
-          {/* Quality Reports */}
-          {attendanceData.qualityReports && attendanceData.qualityReports.length > 0 && (
-            <div className="mt-8">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-blue-600" />
-                Image Quality Analysis
-              </h3>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {attendanceData.qualityReports.map((report, idx) => (
-                  <div key={idx} className={`p-4 rounded-lg border shadow-sm ${report.is_blurry || report.lighting_status !== 'Good' ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'}`}>
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="font-bold text-gray-700">Image {report.image_index}</span>
-                      {report.error ? (
-                        <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">Error</span>
-                      ) : (
-                        <span className={`text-xs px-2 py-1 rounded font-bold border ${report.is_blurry || report.lighting_status !== 'Good' ? 'bg-orange-100 text-orange-800 border-orange-200' : 'bg-green-100 text-green-800 border-green-200'}`}>
-                          Score: {Math.max(0, 100 - (report.is_blurry ? 30 : 0) - (report.lighting_status !== 'Good' ? 20 : 0))}%
-                        </span>
-                      )}
-                    </div>
-
-                    {report.error ? (
-                      <p className="text-sm text-red-600">{report.error}</p>
-                    ) : (
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between items-center border-b pb-1 border-gray-200 border-opacity-50">
-                          <span className="text-gray-600">Lighting</span>
-                          <span className={`font-medium ${report.lighting_status === 'Good' ? 'text-green-700' : 'text-orange-700'}`}>{report.lighting_status}</span>
-                        </div>
-                        <div className="flex justify-between items-center border-b pb-1 border-gray-200 border-opacity-50">
-                          <span className="text-gray-600">Focus</span>
-                          <span className={`font-medium ${!report.is_blurry ? 'text-green-700' : 'text-orange-700'}`}>{!report.is_blurry ? 'Sharp' : 'Blurry'}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600">Faces</span>
-                          <span className="font-medium text-gray-800">{report.face_count || 0} detected</span>
-                        </div>
-                        {report.suggestion && (
-                          <div className="mt-2 text-xs text-blue-800 bg-blue-50 p-2 rounded border border-blue-100 flex gap-1 items-start">
-                            <span>💡</span>
-                            <span>{report.suggestion}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Report Download Link */}
           {attendanceData.reportUrl && (
