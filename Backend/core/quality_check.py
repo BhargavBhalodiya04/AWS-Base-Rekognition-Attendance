@@ -18,7 +18,7 @@ def analyze_image_quality(image_bytes):
 
         # 1. Blur Detection (Laplacian Variance)
         blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
-        is_blurry = blur_score < 100.0  # Threshold can be tuned
+        is_blurry = bool(blur_score < 100.0)  # Threshold can be tuned
 
         # 2. Lighting Check (Mean Brightness)
         brightness = np.mean(gray)
@@ -40,14 +40,15 @@ def analyze_image_quality(image_bytes):
         # but here we can return the cv2 based metrics.
         
         return {
-            "resolution": f"{width}x{height}",
-            "blur_score": round(blur_score, 2),
-            "is_blurry": is_blurry,
-            "brightness": round(brightness, 2),
-            "lighting_status": lighting_status,
-            "contrast": round(contrast, 2),
-            "suggestion": suggestion
+            "resolution": f"{int(width)}x{int(height)}",
+            "blur_score": float(round(blur_score, 2)),
+            "is_blurry": bool(is_blurry),
+            "brightness": float(round(brightness, 2)),
+            "lighting_status": str(lighting_status),
+            "contrast": float(round(contrast, 2)),
+            "suggestion": str(suggestion)
         }
+
 
     except ImportError:
         return {"error": "OpenCV or Numpy not installed on server."}

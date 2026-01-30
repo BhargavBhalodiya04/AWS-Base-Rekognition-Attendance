@@ -147,6 +147,8 @@ def mark_batch_attendance_s3(
         
         quality_report['face_detected'] = True
         quality_report['face_count'] = len(detection['FaceDetails'])
+        quality_report['avg_face_confidence'] = float(round(avg_confidence, 2))
+        quality_report['face_coverage_pct'] = float(round(face_coverage, 2))
         
         # Calculate Average Face Quality Metrics from Rekognition
         avg_confidence = 0
